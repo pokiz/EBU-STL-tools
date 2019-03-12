@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include "string_utils.h"
@@ -13,7 +14,7 @@ char* str_shift(char* source, int position, int shift){
 		}
 		source[len-shift] = '\0';
 	}
-	
+
 	if(shift > 0){
 		for(i = position; i < strlen(source)-shift; i++){
 			source[i] = source[i+shift];
@@ -25,7 +26,7 @@ char* str_shift(char* source, int position, int shift){
 	else{
 		for(i = strlen(source); i >= position; i--){
 			source[i] = source[i+shift];
-		}	
+		}
 	}
 	return source;
 }
@@ -79,4 +80,25 @@ int str_count(const char* source,const char needle){
 	}
 
 	return count;
+}
+
+char* trimString(char *in) {
+	size_t len = strlen(in);
+	size_t pos = 0;
+	char *start = 0;
+	char *end = 0;
+
+	char *result = malloc(sizeof(char) * (len + 1));
+
+	start = &(in[pos]);
+	while(in[pos] && (in[pos] <= ' ' || isspace((unsigned char)in[pos]))) {
+		pos++;
+		start = &(in[pos]);
+	}
+	pos = len;
+	end = &(in[len]);
+	while(end > start && (in[--pos] <= ' ' || isspace((unsigned char)in[pos]))) end = &(in[pos]);
+	memcpy(result, start, end - start);
+	result[end-start] = '\0';
+	return result;
 }

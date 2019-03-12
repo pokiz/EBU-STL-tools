@@ -1,6 +1,10 @@
 #ifndef EBU_H
 #define EBU_H value
 
+typedef enum EXPORT_FORMAT
+{
+    RAW, JSON
+}			 T_EXPORT_FORMAT;
 
 //STL HEADER
 struct EBU_GSI{

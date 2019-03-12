@@ -2,9 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <unistd.h>
 #include "ebu.h"
+#include "string_utils.h"
 
-int log(char* opt, char* name, char* format, ...) {
+int dump_line(T_EXPORT_FORMAT exportFormat, int last, char* opt, char* name, char* format, ...) {
 	if (opt != NULL && strcmp(opt, name) != 0) {
 		return 0;
 	}
@@ -12,30 +14,38 @@ int log(char* opt, char* name, char* format, ...) {
 	va_list args;
 	va_start(args, format);
 
+	char  formattedValue[80];
+	char  *trimmedValue;
+
+	vsprintf(formattedValue, format, args);
+	trimmedValue = trimString(formattedValue);
+
 	if (opt != NULL && strcmp(opt, name) == 0) {
-		vprintf(format, args);
+		printf("%s\n", trimmedValue);
+	} else {
+		if (exportFormat == RAW) {
+			printf("%s: %s\n", name, trimmedValue);
+		} else if (exportFormat == JSON) {
+			printf("\"%s\": \"%s\"", name, trimmedValue);
+			if (last == 0) printf(",");
+		}
 	}
-	else {
-		char output[80];
-		strcpy(output, name);
-		strcat(output, ": ");
-		strcat(output, format);
-		vprintf(output, args);
-	}
+	free(trimmedValue);
 	va_end(args);
 	return 1;
 }
 
-void dumpTTI(struct EBU_TTI* tti){
-	printf("SGN: %hX\n",tti->SGN);
-	printf("SN : %02hX%02hX\n",tti->SN[1],tti->SN[0]);
-	printf("EBN: %hX\n",tti->EBN);
-	printf("CS : %hX\n",tti->CS);
-	printf("TCI: %02d:%02d:%02d:%02d\n",tti->TCI.hours,tti->TCI.minutes,tti->TCI.seconds,tti->TCI.frames);
-	printf("TCO: %02d:%02d:%02d:%02d\n",tti->TCO.hours,tti->TCO.minutes,tti->TCO.seconds,tti->TCO.frames);
-	printf("VP : %hX\n",tti->VP);
-	printf("JC : %hX\n",tti->JC);
-	printf("CF : %hX\n",tti->CF);
+void dumpTTI(T_EXPORT_FORMAT exportFormat, int last, struct EBU_TTI* tti){
+	dump_line(exportFormat, 0, NULL, "SGN", "%hX", tti->SGN);
+	dump_line(exportFormat, 0, NULL, "SN", "%02hX%02hX", tti->SN[1], tti->SN[0]);
+	dump_line(exportFormat, 0, NULL, "EBN", "%hX", tti->EBN);
+	dump_line(exportFormat, 0, NULL, "CS", "%hX", tti->CS);
+
+	dump_line(exportFormat, 0, NULL, "TCI", "%02d:%02d:%02d:%02d", tti->TCI.hours,tti->TCI.minutes,tti->TCI.seconds,tti->TCI.frames);
+	dump_line(exportFormat, 0, NULL, "TCO", "%02d:%02d:%02d:%02d", tti->TCO.hours,tti->TCO.minutes,tti->TCO.seconds,tti->TCO.frames);
+	dump_line(exportFormat, 0, NULL, "VP", "%hX", tti->VP);
+	dump_line(exportFormat, 0, NULL, "JC", "%hX", tti->JC);
+	dump_line(exportFormat, 0, NULL, "CF", "%hX", tti->CF);
 
 	int i = 0;
 	int j = 0;
@@ -47,7 +57,7 @@ void dumpTTI(struct EBU_TTI* tti){
 			j++;
 		}
 		if(tti->TF[i] == 0x8A || tti->TF[i] == 0x8F){
-			printf("Char Count : %d\t%s\n",j,tti->TF);
+			dump_line(exportFormat, 0, NULL, "Char Count", "%d\t%s", tti->TF);
 			j = 0;
 			if(tti->TF[i] == 0x8F){
 				break;
@@ -55,33 +65,98 @@ void dumpTTI(struct EBU_TTI* tti){
 		}
 
 	}
+	dump_line(exportFormat, last, NULL, "TF", "%.112s", tti->TF);
+}
 
+void dumpGSI(T_EXPORT_FORMAT format, int full, char *option, struct EBU* ebu) {
+	dump_line(format, 0, option, "CPN", "%.3s",ebu->gsi.CPN);
+	dump_line(format, 0, option, "DFC", "%.8s",ebu->gsi.DFC);
+	dump_line(format, 0, option, "DSC", "%c",ebu->gsi.DSC);
+	dump_line(format, 0, option, "CCT", "%.2s",ebu->gsi.CCT);
+	dump_line(format, 0, option, "LC",  "%.2s",ebu->gsi.LC);
+	dump_line(format, 0, option, "OPT", "%.32s",ebu->gsi.OPT);
+	dump_line(format, 0, option, "OET", "%.32s",ebu->gsi.OET);
+	dump_line(format, 0, option, "TPT", "%.32s",ebu->gsi.TPT);
+	dump_line(format, 0, option, "TET", "%.32s",ebu->gsi.TET);
+	dump_line(format, 0, option, "TN",  "%.32s",ebu->gsi.TN);
+	dump_line(format, 0, option, "TCD", "%.32s",ebu->gsi.TCD);
+	dump_line(format, 0, option, "SLR", "%.16s",ebu->gsi.SLR);
+	dump_line(format, 0, option, "CD",  "%.6s",ebu->gsi.CD);
+	dump_line(format, 0, option, "RD",  "%.6s",ebu->gsi.RD);
+	dump_line(format, 0, option, "RN",  "%.2s",ebu->gsi.RN);
+	dump_line(format, 0, option, "TNB", "%.5s",ebu->gsi.TNB);
+	dump_line(format, 0, option, "TNS", "%.5s",ebu->gsi.TNS);
+	dump_line(format, 0, option, "TNG", "%.3s",ebu->gsi.TNG);
+	dump_line(format, 0, option, "MNC", "%.2s",ebu->gsi.MNC);
+	dump_line(format, 0, option, "MNR", "%.2s",ebu->gsi.MNR);
+	dump_line(format, 0, option, "TCS", "%hX",ebu->gsi.TCS);
 
-	printf("TF : %.112s\n",tti->TF);
+	struct EBU_TC *tc = charToTC(ebu->gsi.TCP);
+	dump_line(format, 0, option, "TCP", "%02hd:%02hd:%02hd:%02hd", tc->hours,tc->minutes,tc->seconds,tc->frames);
+	free(tc);
+	tc = charToTC(ebu->gsi.TCF);
+	dump_line(format, 0, option, "TCF", "%02hd:%02hd:%02hd:%02hd", tc->hours,tc->minutes,tc->seconds,tc->frames);
+	free(tc);
+
+	dump_line(format, 0, option, "TND", "%hX",ebu->gsi.TND);
+	dump_line(format, 0, option, "DSN", "%hX",ebu->gsi.DSN);
+	dump_line(format, 0, option, "CO",  "%.3s",ebu->gsi.CO);
+	dump_line(format, 0, option, "PUB", "%.32s",ebu->gsi.PUB);
+	dump_line(format, 0, option, "EN",  "%.32s",ebu->gsi.EN);
+	dump_line(format, (int)(!full), option, "ECD", "%.32s",ebu->gsi.ECD);
+}
+
+void dump(T_EXPORT_FORMAT format, char *option, struct EBU* ebu, int full) {
+	int i = 0;
+
+	if (!option && format == JSON) {
+		printf("{");
+	}
+
+	dumpGSI(format, full, option, ebu);
+
+	if(full == 1){
+		char TNB[6];
+		strncpy(TNB,ebu->gsi.TNB,5);
+		TNB[5] = '\0';
+		int nTNB = atoi(TNB);
+		printf("%d\n",nTNB);
+		for(i = 0; i < nTNB; i++){
+			dumpTTI(format, (int)(i+1 == nTNB), &(ebu->tti[i]));
+		}
+	}
+
+	if (!option && format == JSON) {
+		printf("}");
+	}
 }
 
 int main(int argc, const char** argv) {
 	char * output = NULL;
 	char * option = NULL;
+	T_EXPORT_FORMAT format = RAW;
+
 	int full = 0;
 	int i = 0;
 	for (i = 1; i < argc; ++i)
 	{
-		if(!strcmp(argv[i],"-f")){
+		if (!strcmp(argv[i],"-f")) {
 			full = 1;
-		}
-		else if (strstr(argv[i], "--option=") != NULL){
+		} else if (strstr(argv[i], "--option=") != NULL) {
 			option = strtok(argv[i], "--option=");
-		}
-		else{
+		} else if (strstr(argv[i], "--json") != NULL) {
+			format = JSON;
+		} else if (strstr(argv[i], "--raw") != NULL) {
+			format = RAW;
+		} else {
 			output = (char *) argv[i];
 		}
 	}
 
-	if(output == NULL){
-		if(output == NULL)
+	if (output == NULL) {
+		if (output == NULL)
 			printf("no output set\n");
-		printf("Usage: %s [-f] input.stl\n",argv[0]);
+		printf("Usage: %s [-f] [--option={option}] [--raw] [--json] input.stl\n",argv[0]);
 		return 0;
 	}
 
@@ -101,53 +176,8 @@ int main(int argc, const char** argv) {
 
 	isBelleNuit(ebu);
 
-	log(option, "CPN", "%.3s\n",ebu->gsi.CPN);
-	log(option, "DFC", "%.8s\n",ebu->gsi.DFC);
-	log(option, "DSC", "%c\n",ebu->gsi.DSC);
-	log(option, "CCT", "%.2s\n",ebu->gsi.CCT);
-	log(option, "LC",  "%.2s\n",ebu->gsi.LC);
-	log(option, "OPT", "%.32s\n",ebu->gsi.OPT);
-	log(option, "OET", "%.32s\n",ebu->gsi.OET);
-	log(option, "TPT", "%.32s\n",ebu->gsi.TPT);
-	log(option, "TET", "%.32s\n",ebu->gsi.TET);
-	log(option, "TN",  "%.32s\n",ebu->gsi.TN);
-	log(option, "TCD", "%.32s\n",ebu->gsi.TCD);
-	log(option, "SLR", "%.16s\n",ebu->gsi.SLR);
-	log(option, "CD",  "%.6s\n",ebu->gsi.CD);
-	log(option, "RD",  "%.6s\n",ebu->gsi.RD);
-	log(option, "RN",  "%.2s\n",ebu->gsi.RN);
-	log(option, "TNB", "%.5s\n",ebu->gsi.TNB);
-	log(option, "TNS", "%.5s\n",ebu->gsi.TNS);
-	log(option, "TNG", "%.3s\n",ebu->gsi.TNG);
-	log(option, "MNC", "%.2s\n",ebu->gsi.MNC);
-	log(option, "MNR", "%.2s\n",ebu->gsi.MNR);
-	log(option, "TCS", "%hX\n",ebu->gsi.TCS);
+	dump(format, option, ebu, full);
 
-	struct EBU_TC *tc = charToTC(ebu->gsi.TCP);
-	log(option, "TCP", "%02hd:%02hd:%02hd:%02hd\n", tc->hours,tc->minutes,tc->seconds,tc->frames);
-	free(tc);
-	tc = charToTC(ebu->gsi.TCF);
-	log(option, "TCF", "%02hd:%02hd:%02hd:%02hd\n", tc->hours,tc->minutes,tc->seconds,tc->frames);
-	free(tc);
-
-	log(option, "TND", "%hX\n",ebu->gsi.TND);
-	log(option, "DSN", "%hX\n",ebu->gsi.DSN);
-	log(option, "CO",  "%.3s\n",ebu->gsi.CO);
-	log(option, "PUB", "%.32s\n",ebu->gsi.PUB);
-	log(option, "EN",  "%.32s\n",ebu->gsi.EN);
-	log(option, "ECD", "%.32s\n",ebu->gsi.ECD);
-
-	if(full == 1){
-		char TNB[6];
-		strncpy(TNB,ebu->gsi.TNB,5);
-		TNB[5] = '\0';
-		int nTNB = atoi(TNB);
-		printf("%d\n",nTNB);
-		for(i = 0; i < nTNB; i++){
-			dumpTTI(&(ebu->tti[i]));
-		}
-	}
-	
 	free(ebu);
 
 	return 0;
