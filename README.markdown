@@ -24,4 +24,6 @@ usage: ebu_dump [-f] [--option={option}] file.stl
 
 options:
 -f: Show full dump.
---option: Show only selected option
+--option: Show only selected option (Not compatible with --full)
+--raw: Raw output (default, not compatible with --option)
+--json: Format output to json (Not compatible with --option)
